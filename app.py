@@ -86,6 +86,25 @@ st.markdown("""
         padding-bottom: 8px;
         border-bottom: 1px solid #3E4248;
     }
+            
+    /* ── Status pills: fill full width ── */
+        div[data-testid="stPills"] {
+            width: 100% !important;
+        }
+        div[data-testid="stPills"] > div {
+            display: flex !important;
+            gap: 8px !important;
+            width: 100% !important;
+        }
+        div[data-testid="stPills"] button {
+            flex: 1 1 0 !important;
+            justify-content: center !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            padding: 8px 12px !important;
+            border: 1px solid #3E4248 !important;
+            border-radius: 8px !important;
+        }
 
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
@@ -213,8 +232,7 @@ with st.sidebar:
 
     filters = {
         "discipline": st.selectbox("Division / Discipline", disciplines, key="filter_discipline"),
-        "contractor": st.selectbox("Contractor / Assigned To", contractors, key="filter_contractor"),
-        "status":     st.selectbox("Status", ["All", "Open", "In Progress", "Pending Review", "Closed"], key="filter_status"),
+        "contractor": st.selectbox("Contractor / Assigned To", contractors, key="filter_contractor")
     }
 
     st.markdown("---")

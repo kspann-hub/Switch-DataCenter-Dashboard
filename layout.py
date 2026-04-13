@@ -131,10 +131,11 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
         if issues.empty:
             st.info("No issue data available.")
         else:
-            open_issues  = issues[issues['status'] != 'Closed']
-            aging_60     = open_issues[open_issues['aging_category'] == '>60 Days']
-            aging_45     = open_issues[open_issues['aging_category'] == '45-60 Days']
-            in_progress  = open_issues[open_issues['status'] == 'In Progress']
+            # ── KPIs first (always show full picture) ──
+            open_issues   = issues[issues['status'] != 'Closed']
+            aging_60      = open_issues[open_issues['aging_category'] == '>60 Days']
+            aging_45      = open_issues[open_issues['aging_category'] == '45-60 Days']
+            in_progress   = open_issues[open_issues['status'] == 'In Progress']
             high_priority = open_issues[open_issues['priority'].str.contains('High', na=False)]
 
             section("Key Metrics")
@@ -147,6 +148,34 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
             with c4: kpi_card("In Progress", len(in_progress), "kpi-blue", "actively worked")
             with c5: kpi_card("High Priority", len(high_priority), "kpi-red", "open & high")
 
+            from config import ISSUE_STATUS_ORDER
+
+            # ── Status filter pills ──
+            st.markdown("<div style='margin-top: 1.2rem;'></div>", unsafe_allow_html=True)
+            st.markdown(
+                "<p style='font-weight:600; font-size:13px; letter-spacing:1px; "
+                "text-transform:uppercase; color:#C8CDD4; margin-bottom:0.3rem;'>"
+                "Filter by Status</p>",
+                unsafe_allow_html=True
+            )
+
+            # Order statuses per config, append any extras alphabetically
+            raw_statuses = [
+                s for s in issues["status"].dropna().unique()
+                if s and str(s) not in ['0', 'nan', 'None', '']
+            ]
+            ordered = [s for s in ISSUE_STATUS_ORDER if s in raw_statuses]
+            extras = sorted(set(raw_statuses) - set(ordered))
+            issue_statuses = ordered + extras
+
+            selected = st.pills("Status", issue_statuses,
+                                selection_mode="multi", key="issue_status_filter",
+                                label_visibility="collapsed")
+
+            if selected:
+                issues = issues[issues["status"].isin(selected)]
+
+      
             section("Issue Breakdown")
             col_l, col_r = st.columns(2)
 
@@ -248,6 +277,16 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
     # ══════════════════════════════════════════════════════════════
             
     with tab2:
+        cl_statuses = ["All"]
+        if not checklists.empty and "status" in checklists.columns:
+            cl_statuses += sorted([
+                s for s in checklists["status"].dropna().unique()
+                if s and str(s) not in ['0', 'nan', 'None', '']
+            ])
+        selected_status = st.selectbox("Status", cl_statuses, key="cl_status_filter")
+        if selected_status != "All":
+            checklists = checklists[checklists["status"] == selected_status]
+
         if checklists.empty:
             st.info("No checklist data available.")
         else:
@@ -517,6 +556,16 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
     # TAB 3 — FUNCTIONAL TESTS
     # ══════════════════════════════════════════════════════════════
     with tab3:
+        test_statuses = ["All"]
+        if not tests.empty and "status" in tests.columns:
+            test_statuses += sorted([
+                s for s in tests["status"].dropna().unique()
+                if s and str(s) not in ['0', 'nan', 'None', '']
+            ])
+        selected_status = st.selectbox("Status", test_statuses, key="test_status_filter")
+        if selected_status != "All":
+            tests = tests[tests["status"] == selected_status]
+
         if tests.empty:
             st.info("No functional test data available.")
         else:
@@ -754,6 +803,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
     # TAB 4 — EQUIPMENT
     # ══════════════════════════════════════════════════════════════
     with tab4:
+
         if equipment.empty:
             st.info("No equipment data available.")
         else:
@@ -872,201 +922,202 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
 
             st.markdown("<div style='height: 16px'></div>", unsafe_allow_html=True)
 
-            # ── Filters: Building Phase + Floor ──────────────────────────
-            filter_col1, filter_col2 = st.columns(2)
-            with filter_col1:
-                bldg_options = ['All'] + sorted([
-                    b for b in equipment['building_phase'].unique()
-                    if b and b != 'Unknown'
+    
+            # ── Filters row: Status | Building Phase | Floor ──
+            f1, f2, f3 = st.columns(3)
+            with f1:
+                eq_statuses = ["All"] + sorted([
+                    s for s in equipment["status"].dropna().unique()
+                    if s and str(s) not in ['0', 'nan', 'None', '']
                 ])
-                selected_bldg = st.selectbox("Building Phase", bldg_options, key="eq_bldg")
-            with filter_col2:
-                floor_options = ['All'] + sorted([
-                    f for f in equipment['floor_parsed'].unique()
-                    if f and f != 'Unknown'
-                ])
-                selected_floor = st.selectbox("Floor", floor_options, key="eq_floor")
+                sel_status = st.selectbox("Status", eq_statuses, key="eq_status_filter")
+            with f2:
+                buildings = ['All'] + sorted(equipment['building_phase'].dropna().unique().tolist())
+                sel_building = st.selectbox("Building Phase", buildings, key="eq_building")
+            with f3:
+                floors = ['All'] + sorted(equipment['floor'].dropna().unique().tolist())
+                sel_floor = st.selectbox("Floor", floors, key="eq_floor")
 
-            eq_filtered = equipment.copy()
-            if selected_bldg != 'All':
-                eq_filtered = eq_filtered[eq_filtered['building_phase'] == selected_bldg]
-            if selected_floor != 'All':
-                eq_filtered = eq_filtered[eq_filtered['floor_parsed'] == selected_floor]
+            if sel_status != "All":
+                equipment = equipment[equipment["status"] == sel_status]
+            if sel_building != 'All':
+                equipment = equipment[equipment['building_phase'] == sel_building]
+            if sel_floor != 'All':
+                equipment = equipment[equipment['floor'] == sel_floor]
 
-            if eq_filtered.empty:
-                st.warning("No equipment matches these filters.")
-            else:
-                st.caption(f"Showing {len(eq_filtered)} of {total_eq} equipment")
+            eq_filtered = equipment 
 
-                # ── Equipment by Type ────────────────────────────────────
-                section("Equipment by Type")
+    
+            # ── Equipment by Type ────────────────────────────────────
+            section("Equipment by Type")
 
-                type_summary = eq_filtered.groupby('type').agg(
-                    Count=('equipment_id', 'count'),
-                    Checklists=('cl_total', 'sum'),
-                    CL_Done=('cl_done', 'sum'),
-                    Tests=('ts_total', 'sum'),
-                    Tests_Passed=('ts_passed', 'sum'),
-                    Issues=('iss_total', 'sum'),
-                    Issues_Open=('iss_open', 'sum'),
-                ).reset_index().sort_values('Count', ascending=True)
+            type_summary = eq_filtered.groupby('type').agg(
+                Count=('equipment_id', 'count'),
+                Checklists=('cl_total', 'sum'),
+                CL_Done=('cl_done', 'sum'),
+                Tests=('ts_total', 'sum'),
+                Tests_Passed=('ts_passed', 'sum'),
+                Issues=('iss_total', 'sum'),
+                Issues_Open=('iss_open', 'sum'),
+            ).reset_index().sort_values('Count', ascending=True)
 
-                fig_type = go.Figure()
-                fig_type.add_trace(go.Bar(
-                    y=type_summary['type'], x=type_summary['Count'],
-                    orientation='h',
-                    marker=dict(color='#4A90D9'),
-                    text=type_summary['Count'], textposition='outside',
-                    textfont=dict(color='#8A8F98', family='Barlow, sans-serif', size=11),
+            fig_type = go.Figure()
+            fig_type.add_trace(go.Bar(
+                y=type_summary['type'], x=type_summary['Count'],
+                orientation='h',
+                marker=dict(color='#4A90D9'),
+                text=type_summary['Count'], textposition='outside',
+                textfont=dict(color='#8A8F98', family='Barlow, sans-serif', size=11),
+            ))
+            fig_type.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
+                margin=dict(t=10, b=10, l=10, r=40),
+                xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
+                yaxis=dict(tickfont=dict(size=11, color='#F0F0F0')),
+                height=max(300, len(type_summary) * 28),
+            )
+            st.plotly_chart(fig_type, use_container_width=True)
+
+
+            # ── Checklist Completion by Equipment Type ────────────────
+            section("Checklist Completion by Equipment Type")
+
+            cl_by_type = eq_filtered.groupby('type').agg(
+                Total=('cl_total', 'sum'),
+                Done=('cl_done', 'sum'),
+            ).reset_index()
+            cl_by_type['Remaining'] = cl_by_type['Total'] - cl_by_type['Done']
+            cl_by_type['Pct'] = (cl_by_type['Done'] / cl_by_type['Total'] * 100).round(1)
+            cl_by_type = cl_by_type[cl_by_type['Total'] > 0].sort_values('Total', ascending=True)
+
+            fig_cl = go.Figure()
+            fig_cl.add_trace(go.Bar(
+                y=cl_by_type['type'], x=cl_by_type['Done'],
+                name='Complete / In Review', orientation='h',
+                marker=dict(color='#39B54A'),
+                text=cl_by_type.apply(
+                    lambda r: f"{int(r['Done'])} ({r['Pct']}%)" if r['Done'] > 0 else '',
+                    axis=1),
+                textposition='inside',
+                textfont=dict(color='#F0F0F0', family='Barlow, sans-serif', size=11),
+            ))
+            fig_cl.add_trace(go.Bar(
+                y=cl_by_type['type'], x=cl_by_type['Remaining'],
+                name='Remaining', orientation='h',
+                marker=dict(color='#3E4248'),
+                text=cl_by_type['Total'].apply(lambda t: str(int(t))),
+                textposition='outside',
+                textfont=dict(color='#8A8F98', family='Barlow, sans-serif', size=11),
+            ))
+            fig_cl.update_layout(
+                barmode='stack',
+                plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
+                margin=dict(t=10, b=10, l=10, r=50),
+                xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
+                yaxis=dict(tickfont=dict(size=11, color='#F0F0F0')),
+                legend=dict(orientation='h', yanchor='bottom', y=1.02,
+                            xanchor='left', x=0, font=dict(color='#8A8F98', size=11)),
+                height=max(300, len(cl_by_type) * 28),
+            )
+            st.plotly_chart(fig_cl, use_container_width=True)
+
+            # ── Issues by Equipment Type ─────────────────────────────
+            iss_by_type = eq_filtered.groupby('type').agg(
+                Total=('iss_total', 'sum'),
+                Open=('iss_open', 'sum'),
+            ).reset_index()
+            iss_by_type['Closed'] = iss_by_type['Total'] - iss_by_type['Open']
+            iss_by_type = iss_by_type[iss_by_type['Total'] > 0].sort_values('Total', ascending=True)
+
+            if not iss_by_type.empty:
+                section("Issues by Equipment Type")
+
+                fig_iss = go.Figure()
+                fig_iss.add_trace(go.Bar(
+                    y=iss_by_type['type'], x=iss_by_type['Open'],
+                    name='Open', orientation='h',
+                    marker=dict(color='#E04040'),
+                    text=iss_by_type['Open'].apply(lambda v: str(int(v)) if v > 0 else ''),
+                    textposition='inside',
+                    textfont=dict(color='#F0F0F0', family='Barlow, sans-serif', size=11),
                 ))
-                fig_type.update_layout(
+                fig_iss.add_trace(go.Bar(
+                    y=iss_by_type['type'], x=iss_by_type['Closed'],
+                    name='Closed', orientation='h',
+                    marker=dict(color='#39B54A'),
+                    text=iss_by_type['Closed'].apply(lambda v: str(int(v)) if v > 0 else ''),
+                    textposition='inside',
+                    textfont=dict(color='#F0F0F0', family='Barlow, sans-serif', size=11),
+                ))
+                fig_iss.update_layout(
+                    barmode='stack',
                     plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                     font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
                     margin=dict(t=10, b=10, l=10, r=40),
                     xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
                     yaxis=dict(tickfont=dict(size=11, color='#F0F0F0')),
-                    height=max(300, len(type_summary) * 28),
+                    legend=dict(orientation='h', yanchor='bottom', y=1.02,
+                                xanchor='left', x=0, font=dict(color='#8A8F98', size=11)),
+                    height=max(200, len(iss_by_type) * 35),
                 )
-                st.plotly_chart(fig_type, use_container_width=True)
+                st.plotly_chart(fig_iss, use_container_width=True)
 
-                # ── Checklist Completion by Equipment Type ────────────────
-                section("Checklist Completion by Equipment Type")
+            # ── Equipment by Building Phase ──────────────────────────
+            if 'building_phase' in eq_filtered.columns:
+                section("Equipment by Building Phase")
 
-                cl_by_type = eq_filtered.groupby('type').agg(
-                    Total=('cl_total', 'sum'),
-                    Done=('cl_done', 'sum'),
+                bldg_summary = eq_filtered.groupby('building_phase').agg(
+                    Count=('equipment_id', 'count'),
+                    Checklists=('cl_total', 'sum'),
+                    CL_Done=('cl_done', 'sum'),
+                    Issues_Open=('iss_open', 'sum'),
                 ).reset_index()
-                cl_by_type['Remaining'] = cl_by_type['Total'] - cl_by_type['Done']
-                cl_by_type['Pct'] = (cl_by_type['Done'] / cl_by_type['Total'] * 100).round(1)
-                cl_by_type = cl_by_type[cl_by_type['Total'] > 0].sort_values('Total', ascending=True)
+                bldg_summary['CL %'] = (
+                    bldg_summary['CL_Done'] / bldg_summary['Checklists'] * 100
+                ).round(1).fillna(0)
+                bldg_summary = bldg_summary[bldg_summary['building_phase'] != 'Unknown']
+                bldg_summary = bldg_summary.sort_values('Count', ascending=True)
 
-                fig_cl = go.Figure()
-                fig_cl.add_trace(go.Bar(
-                    y=cl_by_type['type'], x=cl_by_type['Done'],
-                    name='Complete / In Review', orientation='h',
-                    marker=dict(color='#39B54A'),
-                    text=cl_by_type.apply(
-                        lambda r: f"{int(r['Done'])} ({r['Pct']}%)" if r['Done'] > 0 else '',
+                fig_bldg = go.Figure()
+                fig_bldg.add_trace(go.Bar(
+                    y=bldg_summary['building_phase'], x=bldg_summary['Count'],
+                    orientation='h',
+                    marker=dict(color='#6C90B6'),
+                    text=bldg_summary.apply(
+                        lambda r: f"{int(r['Count'])} eq  ·  {r['CL %']}% CL done  ·  {int(r['Issues_Open'])} open issues",
                         axis=1),
-                    textposition='inside',
-                    textfont=dict(color='#F0F0F0', family='Barlow, sans-serif', size=11),
-                ))
-                fig_cl.add_trace(go.Bar(
-                    y=cl_by_type['type'], x=cl_by_type['Remaining'],
-                    name='Remaining', orientation='h',
-                    marker=dict(color='#3E4248'),
-                    text=cl_by_type['Total'].apply(lambda t: str(int(t))),
                     textposition='outside',
                     textfont=dict(color='#8A8F98', family='Barlow, sans-serif', size=11),
                 ))
-                fig_cl.update_layout(
-                    barmode='stack',
+                fig_bldg.update_layout(
                     plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                     font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
-                    margin=dict(t=10, b=10, l=10, r=50),
+                    margin=dict(t=10, b=10, l=10, r=250),
                     xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
-                    yaxis=dict(tickfont=dict(size=11, color='#F0F0F0')),
-                    legend=dict(orientation='h', yanchor='bottom', y=1.02,
-                                xanchor='left', x=0, font=dict(color='#8A8F98', size=11)),
-                    height=max(300, len(cl_by_type) * 28),
+                    yaxis=dict(tickfont=dict(size=12, color='#F0F0F0')),
+                    height=max(250, len(bldg_summary) * 45),
                 )
-                st.plotly_chart(fig_cl, use_container_width=True)
+                st.plotly_chart(fig_bldg, use_container_width=True)
 
-                # ── Issues by Equipment Type ─────────────────────────────
-                iss_by_type = eq_filtered.groupby('type').agg(
-                    Total=('iss_total', 'sum'),
-                    Open=('iss_open', 'sum'),
-                ).reset_index()
-                iss_by_type['Closed'] = iss_by_type['Total'] - iss_by_type['Open']
-                iss_by_type = iss_by_type[iss_by_type['Total'] > 0].sort_values('Total', ascending=True)
-
-                if not iss_by_type.empty:
-                    section("Issues by Equipment Type")
-
-                    fig_iss = go.Figure()
-                    fig_iss.add_trace(go.Bar(
-                        y=iss_by_type['type'], x=iss_by_type['Open'],
-                        name='Open', orientation='h',
-                        marker=dict(color='#E04040'),
-                        text=iss_by_type['Open'].apply(lambda v: str(int(v)) if v > 0 else ''),
-                        textposition='inside',
-                        textfont=dict(color='#F0F0F0', family='Barlow, sans-serif', size=11),
-                    ))
-                    fig_iss.add_trace(go.Bar(
-                        y=iss_by_type['type'], x=iss_by_type['Closed'],
-                        name='Closed', orientation='h',
-                        marker=dict(color='#39B54A'),
-                        text=iss_by_type['Closed'].apply(lambda v: str(int(v)) if v > 0 else ''),
-                        textposition='inside',
-                        textfont=dict(color='#F0F0F0', family='Barlow, sans-serif', size=11),
-                    ))
-                    fig_iss.update_layout(
-                        barmode='stack',
-                        plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                        font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
-                        margin=dict(t=10, b=10, l=10, r=40),
-                        xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
-                        yaxis=dict(tickfont=dict(size=11, color='#F0F0F0')),
-                        legend=dict(orientation='h', yanchor='bottom', y=1.02,
-                                    xanchor='left', x=0, font=dict(color='#8A8F98', size=11)),
-                        height=max(200, len(iss_by_type) * 35),
-                    )
-                    st.plotly_chart(fig_iss, use_container_width=True)
-
-                # ── Equipment by Building Phase ──────────────────────────
-                if 'building_phase' in eq_filtered.columns:
-                    section("Equipment by Building Phase")
-
-                    bldg_summary = eq_filtered.groupby('building_phase').agg(
-                        Count=('equipment_id', 'count'),
-                        Checklists=('cl_total', 'sum'),
-                        CL_Done=('cl_done', 'sum'),
-                        Issues_Open=('iss_open', 'sum'),
-                    ).reset_index()
-                    bldg_summary['CL %'] = (
-                        bldg_summary['CL_Done'] / bldg_summary['Checklists'] * 100
-                    ).round(1).fillna(0)
-                    bldg_summary = bldg_summary[bldg_summary['building_phase'] != 'Unknown']
-                    bldg_summary = bldg_summary.sort_values('Count', ascending=True)
-
-                    fig_bldg = go.Figure()
-                    fig_bldg.add_trace(go.Bar(
-                        y=bldg_summary['building_phase'], x=bldg_summary['Count'],
-                        orientation='h',
-                        marker=dict(color='#6C90B6'),
-                        text=bldg_summary.apply(
-                            lambda r: f"{int(r['Count'])} eq  ·  {r['CL %']}% CL done  ·  {int(r['Issues_Open'])} open issues",
-                            axis=1),
-                        textposition='outside',
-                        textfont=dict(color='#8A8F98', family='Barlow, sans-serif', size=11),
-                    ))
-                    fig_bldg.update_layout(
-                        plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                        font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
-                        margin=dict(t=10, b=10, l=10, r=250),
-                        xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
-                        yaxis=dict(tickfont=dict(size=12, color='#F0F0F0')),
-                        height=max(250, len(bldg_summary) * 45),
-                    )
-                    st.plotly_chart(fig_bldg, use_container_width=True)
-
-                # ── Full Equipment Detail Table ──────────────────────────
-                with st.expander("View All Equipment"):
-                    display_cols = ['name', 'type', 'discipline', 'status', 'space',
-                                    'building_phase', 'floor_parsed',
-                                    'cl_total', 'cl_done', 'ts_total', 'ts_passed',
-                                    'iss_total', 'iss_open']
-                    available = [c for c in display_cols if c in eq_filtered.columns]
-                    rename_map = {
-                        'building_phase': 'Building',
-                        'floor_parsed': 'Floor',
-                        'cl_total': 'Checklists',
-                        'cl_done': 'CL Done',
-                        'ts_total': 'Tests',
-                        'ts_passed': 'Tests Passed',
-                        'iss_total': 'Issues',
-                        'iss_open': 'Issues Open',
-                    }
-                    st.dataframe(
-                        eq_filtered[available].rename(columns=rename_map),
-                        use_container_width=True, hide_index=True)
+            # ── Full Equipment Detail Table ──────────────────────────
+            with st.expander("View All Equipment"):
+                display_cols = ['name', 'type', 'discipline', 'status', 'space',
+                                'building_phase', 'floor_parsed',
+                                'cl_total', 'cl_done', 'ts_total', 'ts_passed',
+                                'iss_total', 'iss_open']
+                available = [c for c in display_cols if c in eq_filtered.columns]
+                rename_map = {
+                    'building_phase': 'Building',
+                    'floor_parsed': 'Floor',
+                    'cl_total': 'Checklists',
+                    'cl_done': 'CL Done',
+                    'ts_total': 'Tests',
+                    'ts_passed': 'Tests Passed',
+                    'iss_total': 'Issues',
+                    'iss_open': 'Issues Open',
+                }
+                st.dataframe(
+                    eq_filtered[available].rename(columns=rename_map),
+                    use_container_width=True, hide_index=True)

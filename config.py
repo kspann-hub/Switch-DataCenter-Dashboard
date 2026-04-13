@@ -2,6 +2,17 @@ PROJECT_TYPE = "data_center"
 BRAND_NAME = "CriticalArc"
 BRAND_COLOR = "#39B54A"
 
+ISSUE_STATUS_ORDER = [
+    "Open",
+    "In Progress",
+    "Ready To Inspect",
+    "Work Complete",
+    "Delayed Until After IST",
+    "Information Only",
+    "Void",
+    "Closed",
+]
+
 ISSUE_STATUSES = ["Open", "In Progress", "Pending Verification", "Closed", "Void", "Work Complete", "Ready to Inspect", "Delayed Until After IST", "Information Only"]
 
 # has the checklist had any work on it yet...
