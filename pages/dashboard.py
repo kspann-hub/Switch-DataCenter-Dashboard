@@ -102,7 +102,7 @@ st.html(f"""
             color: #8A8F98;
             margin-top: 4px;
             letter-spacing: 0.5px;
-        ">Commissioning Progress Dashboard</div>
+        ">CRITICALARC Commissioning Progress Dashboard</div>
         <div style="
             font-family: 'Barlow', sans-serif;
             font-size: 12px;
@@ -111,7 +111,7 @@ st.html(f"""
             letter-spacing: 0.5px;
         ">Data last refreshed: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</div>
     </div>
-    <img src="YOUR_LOGO_URL" alt="CriticalArc" style="
+    <img src="https://raw.githubusercontent.com/kspann-hub/Switch-DataCenter-Dashboard/main/assets/criticalarclogo.jpg" alt="CriticalArc" style="
         height: 60px;
         object-fit: contain;
         margin-top: 4px;
