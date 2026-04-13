@@ -148,7 +148,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
             with c4: kpi_card("In Progress", len(in_progress), "kpi-blue", "actively worked")
             with c5: kpi_card("High Priority", len(high_priority), "kpi-red", "open & high")
 
-            from config import ISSUE_STATUS_ORDER
+            import config
 
             # ── Status filter pills ──
             st.markdown("<div style='margin-top: 1.2rem;'></div>", unsafe_allow_html=True)
@@ -164,7 +164,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 s for s in issues["status"].dropna().unique()
                 if s and str(s) not in ['0', 'nan', 'None', '']
             ]
-            ordered = [s for s in ISSUE_STATUS_ORDER if s in raw_statuses]
+            ordered = [s for s in config.ISSUE_STATUS_ORDER if s in raw_statuses]
             extras = sorted(set(raw_statuses) - set(ordered))
             issue_statuses = ordered + extras
 
