@@ -1,3 +1,4 @@
+from config import LEVELS_ORDERED
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -254,7 +255,8 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
             complete_statuses = checklist_complete_statuses
 
             # Derive active levels
-            levels_ordered = ['L2', 'L3', 'L4', 'FAT']
+            from config import LEVELS_ORDERED
+            levels_ordered = LEVELS_ORDERED
             active_levels = [lv for lv in levels_ordered if lv in checklists['level'].values]
 
             # Dynamic color palettes
@@ -519,11 +521,14 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
             st.info("No functional test data available.")
         else:
             total_tests = len(tests)
-            passed  = (tests['status'] == 'Passed').sum()
-            failed  = (tests['status'] == 'Failed').sum()
+            passed = (tests['status'] == 'Passed').sum()
+            failed = (tests['status'] == 'Failed').sum()
+            complete = (tests['status'] == 'Complete').sum()
             not_started = (tests['status'] == 'Not Started').sum()
-            in_prog = total_tests - passed - failed - not_started
-            pass_rate = (passed / total_tests * 100) if total_tests > 0 else 0
+            assigned = (tests['status'] == 'Assigned').sum()
+            in_prog = (tests['status'] == 'In Progress').sum()
+            attempted = passed + failed + complete
+            pass_rate = (passed / attempted * 100) if attempted > 0 else 0
 
             section("Functional Test Summary")
 
@@ -532,7 +537,9 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 ("Total Tests", total_tests, '#F0F0F0'),
                 ("Passed",      passed,      '#39B54A'),
                 ("Failed",      failed,      '#E04040'),
+                ("Complete",    complete,    '#4A90D9'),
                 ("Not Started", not_started, '#8A8F98'),
+                ("In Progress", in_prog + assigned, '#F5A623'),
             ]
             kpi_cols = st.columns(len(kpi_data))
             for i, (label, value, color) in enumerate(kpi_data):
@@ -824,16 +831,28 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
 
             # ── KPI Cards ────────────────────────────────────────────────
             total_eq = len(equipment)
-            delivered = (equipment['status'] == 'Delivered').sum()
-            installing = (equipment['status'] == 'Installation in Progress').sum()
-            released = (equipment['status'] == 'Released').sum()
+            pre_construction = (equipment['status'].isin(['Designed', 'Released'])).sum()
+            delivered = (equipment['status'].isin(['Delivered', 'Installation in Progress'])).sum()
+            commissioning = (equipment['status'].isin([
+                'Level 1 - Accepted on Site', 'Level 2 - Set in Place',
+                'Level 2 - Ready for Pre-Energization Inspection',
+                'Level 2 - Ready for Energization/Startup',
+                'Energized for Temp Power or Energized for Limited Operation'
+            ])).sum()
+            complete = (equipment['status'].isin([
+                'Level 3 - Energization/Startup Complete',
+                'Level 4 - Functionally Tested',
+                'Level 5 - IST Complete'
+            ])).sum()
 
             kpi_data = [
                 ("Total Equipment", total_eq, '#F0F0F0'),
-                ("Released",        released, '#8A8F98'),
-                ("Delivered",       delivered, '#4A90D9'),
-                ("Installing",     installing, '#39B54A'),
+                ("Pre-Construction", pre_construction, '#8A8F98'),
+                ("Delivered / Installing", delivered, '#4A90D9'),
+                ("In Commissioning", commissioning, '#F5A623'),
+                ("Complete", complete, '#39B54A'),
             ]
+
             kpi_cols = st.columns(len(kpi_data))
             for i, (label, value, color) in enumerate(kpi_data):
                 with kpi_cols[i]:
