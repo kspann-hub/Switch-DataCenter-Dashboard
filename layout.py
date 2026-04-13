@@ -166,7 +166,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 s for s in issues["status"].dropna().unique()
                 if s and str(s) not in ['0', 'nan', 'None', '']
             ]
-            ordered = [s for s in config.ISSUE_STATUS_ORDER if s in raw_statuses]
+            ordered = [s for s in ISSUE_STATUS_ORDER if s in raw_statuses]
             extras = sorted(set(raw_statuses) - set(ordered))
             issue_statuses = ordered + extras
 
