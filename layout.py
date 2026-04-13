@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from utils.filters import apply_filters
 from utils.cxalloy import load_project_data
+from config import ISSUE_STATUS_ORDER
 
 # ─── Safe Get ─────────────────────────────────────────────────────────────────
 def safe_get(sheets, key):
@@ -148,7 +149,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
             with c4: kpi_card("In Progress", len(in_progress), "kpi-blue", "actively worked")
             with c5: kpi_card("High Priority", len(high_priority), "kpi-red", "open & high")
 
-            import config
+            
 
             # ── Status filter pills ──
             st.markdown("<div style='margin-top: 1.2rem;'></div>", unsafe_allow_html=True)
