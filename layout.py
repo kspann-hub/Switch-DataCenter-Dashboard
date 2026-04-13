@@ -1,11 +1,12 @@
-from config import LEVELS_ORDERED
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from config import LEVELS_ORDERED, ISSUE_STATUS_ORDER
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from utils.filters import apply_filters
 from utils.cxalloy import load_project_data
-from config import ISSUE_STATUS_ORDER
 
 # ─── Safe Get ─────────────────────────────────────────────────────────────────
 def safe_get(sheets, key):
