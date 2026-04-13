@@ -85,32 +85,39 @@ with st.sidebar:
 project_name = project_names.get(selected_project_id, "Project Dashboard")
 
 st.html(f"""
-<div style="padding: 8px 0 0 0;">
-    <div style="
-        font-family: 'Barlow Condensed', sans-serif;
-        font-size: 42px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        color: #2D3035;
-        text-transform: uppercase;
-        line-height: 1.1;
-    ">{project_name}</div>
-    <div style="
-        font-family: 'Barlow', sans-serif;
-        font-size: 14px;
-        color: #8A8F98;
+<div style="padding: 8px 0 0 0; display: flex; justify-content: space-between; align-items: flex-start;">
+    <div>
+        <div style="
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #2D3035;
+            text-transform: uppercase;
+            line-height: 1.1;
+        ">{project_name}</div>
+        <div style="
+            font-family: 'Barlow', sans-serif;
+            font-size: 14px;
+            color: #8A8F98;
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+        ">Commissioning Progress Dashboard</div>
+        <div style="
+            font-family: 'Barlow', sans-serif;
+            font-size: 12px;
+            color: #5A5F68;
+            margin-top: 6px;
+            letter-spacing: 0.5px;
+        ">Data last refreshed: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</div>
+    </div>
+    <img src="YOUR_LOGO_URL" alt="CriticalArc" style="
+        height: 60px;
+        object-fit: contain;
         margin-top: 4px;
-        letter-spacing: 0.5px;
-    ">Commissioning Progress Dashboard</div>
-    <div style="
-        font-family: 'Barlow', sans-serif;
-        font-size: 12px;
-        color: #5A5F68;
-        margin-top: 6px;
-        letter-spacing: 0.5px;
-    ">Data last refreshed: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</div>
-    <hr style="border: none; border-top: 1px solid #3E4248; margin-top: 16px;">
+    ">
 </div>
+<hr style="border: none; border-top: 1px solid #3E4248; margin-top: 16px;">
 """)
 
 # ─── Render Layout ───────────────────────────────────────
