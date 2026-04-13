@@ -7,6 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from utils.filters import apply_filters
 from utils.cxalloy import load_project_data
+from config import get_color, get_color_list, get_color_map, LEVEL_COLORS
 
 # ─── Safe Get ─────────────────────────────────────────────────────────────────
 def safe_get(sheets, key):
@@ -194,9 +195,8 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                     )
                     priority_counts = priority_counts.sort_values('_sort').drop(columns='_sort')
 
-                    priority_scale = ['#E04040', '#F4B942', '#39B54A', '#4A90D9', '#8A8F98']
-                    color_list = [priority_scale[i % len(priority_scale)]
-                                  for i in range(len(priority_counts))]
+                    color_list = get_color_list(priority_counts['Priority'])
+                                  
                     st.plotly_chart(plotly_donut(priority_counts['Priority'],
                                                  priority_counts['Count'],
                                                  "All Issues by Priority", color_list),
@@ -206,13 +206,9 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 if 'status' in issues.columns:
                     status_counts = issues['status'].value_counts().reset_index()
                     status_counts.columns = ['Status', 'Count']
-                    status_colors = {
-                        'Open': '#E04040', 'In Progress': '#4A90D9',
-                        'Pending Review': '#F4B942', 'Closed': '#39B54A',
-                    }
                     st.plotly_chart(plotly_bar(status_counts, 'Status', 'Count',
                                                'All Issues by Status', color='Status',
-                                               color_map=status_colors),
+                                               color_map=get_color_map(status_counts['Status'])),
                                     use_container_width=True)
 
             section("Issues by Division")
@@ -300,26 +296,12 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
             levels_ordered = LEVELS_ORDERED
             active_levels = [lv for lv in levels_ordered if lv in checklists['level'].values]
 
-            # Dynamic color palettes
-
-            DISCIPLINE_PALETTE = px.colors.qualitative.Set2
-            disc_names = sorted(checklists['discipline'].dropna().unique())
-            disc_colors = {name: DISCIPLINE_PALETTE[i % len(DISCIPLINE_PALETTE)]
-                           for i, name in enumerate(disc_names)}
-
-            LEVEL_PALETTE = ['#7F77DD', '#1D9E75', '#5DCAA5', '#85B7EB']
-            level_colors = {lv: LEVEL_PALETTE[i % len(LEVEL_PALETTE)]
-                            for i, lv in enumerate(active_levels)}
+        
 
 
             section("Checklist Status by Level")
 
-            dc_status_colors = {
-                'Not Started':  '#8A8F98',
-                'In Progress':  '#F5A623',
-                'GC to Verify': '#4A90D9',
-                'Finished':     '#39B54A',
-            }
+            
 
             donut_cols = st.columns(len(active_levels))
 
@@ -331,7 +313,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                     status_cts.columns = ['Status', 'Count']
                     total = len(lv_df)
 
-                    colors = [dc_status_colors.get(s, '#3E4248') for s in status_cts['Status']]
+                    colors = get_color_list(status_cts['Status'])
 
                     fig_donut = go.Figure(go.Pie(
                         labels=status_cts['Status'],
@@ -345,7 +327,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                     fig_donut.update_layout(
                         title=dict(
                             text=f"{lv}",
-                            font=dict(size=16, color=level_colors.get(lv, '#F0F0F0'),
+                            font=dict(size=16, color=LEVEL_COLORS.get(lv, '#F0F0F0'),
                                       family='Barlow Condensed, sans-serif'),
                             x=0.5, xanchor='center'
                         ),
@@ -420,12 +402,6 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
             level_disc = checklists.groupby(['level', 'discipline']).size().reset_index(name='Count')
             level_disc = level_disc[level_disc['level'].isin(active_levels)]
 
-            disc_colors = {
-                'Mechanical':                          '#E74C3C',
-                'Electrical':                          '#F5A623',
-                'Electrical Power Monitoring System':   '#4A90D9',
-                'Fire Protection':                     '#39B54A',
-            }
 
             fig_disc = go.Figure()
             for disc in level_disc['discipline'].unique():
@@ -433,7 +409,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 fig_disc.add_trace(go.Bar(
                     y=disc_df['level'], x=disc_df['Count'],
                     orientation='h', name=disc,
-                    marker=dict(color=disc_colors.get(disc, '#8A8F98')),
+                    marker=dict(color=get_color(disc)),
                     text=disc_df['Count'], textposition='inside',
                     textfont=dict(color="#2B2828", family='Barlow, sans-serif', size=11),
                 ))
@@ -471,12 +447,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                            .nlargest(10).index.tolist())
                 co_level = co_level[co_level['assigned_company'].isin(top_cos)]
 
-                level_colors = {
-                    'L2': '#7F77DD',
-                    'L3': '#1D9E75',
-                    'L4': '#5DCAA5',
-                    'FAT': '#85B7EB'
-                }
+    
 
                 fig_co = go.Figure()
                 for lv in active_levels:
@@ -484,9 +455,9 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                     fig_co.add_trace(go.Bar(
                         x=lv_data['assigned_company'], y=lv_data['Count'],
                         name=lv,
-                        marker=dict(color=level_colors.get(lv, '#8A8F98')),
+                        marker=dict(color=LEVEL_COLORS.get(lv, '#8A8F98')),
                         text=lv_data['Count'], textposition='outside',
-                        textfont=dict(color=level_colors.get(lv, '#8A8F98'),
+                        textfont=dict(color=LEVEL_COLORS.get(lv, '#8A8F98'),
                                       family='Barlow, sans-serif', size=11),
                     ))
 
@@ -586,12 +557,13 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
             # ── KPI Cards ────────────────────────────────────────────────
             kpi_data = [
                 ("Total Tests", total_tests, '#F0F0F0'),
-                ("Passed",      passed,      '#39B54A'),
-                ("Failed",      failed,      '#E04040'),
-                ("Complete",    complete,    '#4A90D9'),
-                ("Not Started", not_started, '#8A8F98'),
-                ("In Progress", in_prog + assigned, '#F5A623'),
+                ("Passed",      passed,      get_color('Passed')),
+                ("Failed",      failed,      get_color('Failed')),
+                ("Complete",    complete,     get_color('Complete')),
+                ("Not Started", not_started,  get_color('Not Started')),
+                ("In Progress", in_prog + assigned, get_color('In Progress')),
             ]
+            
             kpi_cols = st.columns(len(kpi_data))
             for i, (label, value, color) in enumerate(kpi_data):
                 with kpi_cols[i]:
@@ -619,13 +591,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 status_counts = tests['status'].value_counts().reset_index()
                 status_counts.columns = ['Status', 'Count']
 
-                test_status_colors = {
-                    'Passed':      '#39B54A',
-                    'Failed':      '#E04040',
-                    'Not Started': '#3E4248',
-                    'In Progress': '#4A90D9',
-                }
-                color_list = [test_status_colors.get(s, '#8A8F98') for s in status_counts['Status']]
+                color_list = get_color_list(status_counts['Status'])
 
                 fig_donut = go.Figure(go.Pie(
                     labels=status_counts['Status'],
@@ -706,21 +672,21 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 fig_unit = go.Figure()
                 fig_unit.add_trace(go.Bar(
                     x=unit_summary['Unit'], y=unit_summary['Passed'],
-                    name='Passed', marker=dict(color='#39B54A'),
+                    name='Passed', marker=dict(color=get_color('Passed')),
                     text=unit_summary['Passed'].apply(lambda v: str(v) if v > 0 else ''),
                     textposition='inside',
                     textfont=dict(color="#242020", family='Barlow, sans-serif', size=12),
                 ))
                 fig_unit.add_trace(go.Bar(
                     x=unit_summary['Unit'], y=unit_summary['Failed'],
-                    name='Failed', marker=dict(color='#E04040'),
+                    name='Failed', marker=dict(color=get_color('Failed')),
                     text=unit_summary['Failed'].apply(lambda v: str(v) if v > 0 else ''),
                     textposition='inside',
                     textfont=dict(color="#1F1A1A", family='Barlow, sans-serif', size=12),
                 ))
                 fig_unit.add_trace(go.Bar(
                     x=unit_summary['Unit'], y=unit_summary['Not_Started'],
-                    name='Not Started', marker=dict(color='#3E4248'),
+                    name='Not Started', marker=dict(color=get_color('Not Started')),
                     text=unit_summary['Not_Started'].apply(lambda v: str(v) if v > 0 else ''),
                     textposition='inside',
                     textfont=dict(color='#8A8F98', family='Barlow, sans-serif', size=12),
@@ -759,7 +725,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 fig_co.add_trace(go.Bar(
                     y=co_summary['assigned_company'], x=co_summary['Passed'],
                     name='Passed', orientation='h',
-                    marker=dict(color='#39B54A'),
+                    marker=dict(color=get_color('Passed')),
                     text=co_summary['Passed'].apply(lambda v: str(v) if v > 0 else ''),
                     textposition='inside',
                     textfont=dict(color='#F0F0F0', family='Barlow, sans-serif', size=12),
@@ -767,7 +733,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 fig_co.add_trace(go.Bar(
                     y=co_summary['assigned_company'], x=co_summary['Failed'],
                     name='Failed', orientation='h',
-                    marker=dict(color='#E04040'),
+                    marker=dict(color=get_color('Failed')),
                     text=co_summary['Failed'].apply(lambda v: str(v) if v > 0 else ''),
                     textposition='inside',
                     textfont=dict(color="#1D1818", family='Barlow, sans-serif', size=12),
@@ -967,7 +933,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
             fig_type.add_trace(go.Bar(
                 y=type_summary['type'], x=type_summary['Count'],
                 orientation='h',
-                marker=dict(color='#4A90D9'),
+                marker=dict(color=get_color('Assigned')),
                 text=type_summary['Count'], textposition='outside',
                 textfont=dict(color='#8A8F98', family='Barlow, sans-serif', size=11),
             ))
@@ -976,7 +942,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
                 margin=dict(t=10, b=10, l=10, r=40),
                 xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
-                yaxis=dict(tickfont=dict(size=11, color='#F0F0F0')),
+                yaxis=dict(tickfont=dict(size=11, color='#8A8F98')),
                 height=max(300, len(type_summary) * 28),
             )
             st.plotly_chart(fig_type, use_container_width=True)
@@ -1018,7 +984,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
                 margin=dict(t=10, b=10, l=10, r=50),
                 xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
-                yaxis=dict(tickfont=dict(size=11, color='#F0F0F0')),
+                yaxis=dict(tickfont=dict(size=11, color='#8A8F98')),
                 legend=dict(orientation='h', yanchor='bottom', y=1.02,
                             xanchor='left', x=0, font=dict(color='#8A8F98', size=11)),
                 height=max(300, len(cl_by_type) * 28),
@@ -1040,7 +1006,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 fig_iss.add_trace(go.Bar(
                     y=iss_by_type['type'], x=iss_by_type['Open'],
                     name='Open', orientation='h',
-                    marker=dict(color='#E04040'),
+                    marker=dict(color=get_color('Open')),
                     text=iss_by_type['Open'].apply(lambda v: str(int(v)) if v > 0 else ''),
                     textposition='inside',
                     textfont=dict(color='#F0F0F0', family='Barlow, sans-serif', size=11),
@@ -1048,7 +1014,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 fig_iss.add_trace(go.Bar(
                     y=iss_by_type['type'], x=iss_by_type['Closed'],
                     name='Closed', orientation='h',
-                    marker=dict(color='#39B54A'),
+                    marker=dict(color=get_color('Closed')),
                     text=iss_by_type['Closed'].apply(lambda v: str(int(v)) if v > 0 else ''),
                     textposition='inside',
                     textfont=dict(color='#F0F0F0', family='Barlow, sans-serif', size=11),
@@ -1059,7 +1025,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                     font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
                     margin=dict(t=10, b=10, l=10, r=40),
                     xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
-                    yaxis=dict(tickfont=dict(size=11, color='#F0F0F0')),
+                    yaxis=dict(tickfont=dict(size=11, color='#8A8F98')),
                     legend=dict(orientation='h', yanchor='bottom', y=1.02,
                                 xanchor='left', x=0, font=dict(color='#8A8F98', size=11)),
                     height=max(200, len(iss_by_type) * 35),
@@ -1086,7 +1052,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                 fig_bldg.add_trace(go.Bar(
                     y=bldg_summary['building_phase'], x=bldg_summary['Count'],
                     orientation='h',
-                    marker=dict(color='#6C90B6'),
+                    marker=dict(color=get_color('Assigned')),
                     text=bldg_summary.apply(
                         lambda r: f"{int(r['Count'])} eq  ·  {r['CL %']}% CL done  ·  {int(r['Issues_Open'])} open issues",
                         axis=1),
@@ -1098,7 +1064,7 @@ def render(config: dict, filters: dict, all_sheets: dict = None):
                     font=dict(family='Barlow, sans-serif', size=11, color='#8A8F98'),
                     margin=dict(t=10, b=10, l=10, r=250),
                     xaxis=dict(gridcolor='#3E4248', tickfont=dict(color='#8A8F98')),
-                    yaxis=dict(tickfont=dict(size=12, color='#F0F0F0')),
+                    yaxis=dict(tickfont=dict(size=12, color='#8A8F98')),
                     height=max(250, len(bldg_summary) * 45),
                 )
                 st.plotly_chart(fig_bldg, use_container_width=True)
